@@ -1,0 +1,12 @@
+{
+	"servers": {
+		"webots": {
+			"command": "/Users/joaoleahy/Workspace/UFBA/ia-youbot/webots-youbot-mcp/.venv/bin/python",
+			"args": [
+				"/Users/joaoleahy/Workspace/UFBA/ia-youbot/webots-youbot-mcp/webots_youbot_mcp_server.py"
+			],
+			"cwd": "/Users/joaoleahy/Workspace/UFBA/ia-youbot/webots-youbot-mcp"
+		}
+	},
+	"inputs": []
+}

@@ -119,6 +119,17 @@ class YouBotAI(YouBotController):
         self._escape_steps = 0
         self._stuck_counter = 0
 
+        # Detecção de "stuck in circle" (mesmo omega por muito tempo)
+        self._same_omega_direction_steps = 0
+        self._last_omega_sign = 0
+
+        # Direção de giro FIXADA durante recovery (evita oscilação)
+        self._recovery_turn_left = True
+        # Direção FIXADA durante escape
+        self._escape_prefer_left = True
+        # Contador de recoveries consecutivos (força escape após muitos)
+        self._consecutive_recoveries = 0
+
         # prepara braço/garra para não bater
         try:
             self.arm.reset()
@@ -253,25 +264,40 @@ class YouBotAI(YouBotController):
 
         if self._escape_steps > 0:
             self._escape_steps -= 1
-            # quebra simetria: alterna sentido a cada poucos segundos, mas prefere o lado mais livre
-            prefer_left = secs.left_min >= secs.right_min
-            flip = ((self.step_count // int(2.0 * 1000 / max(1, self.time_step))) % 2 == 0)
-            turn_left = prefer_left if flip else (not prefer_left)
-            omega = (1.0 * self.cfg.motion.max_omega) * (1.0 if turn_left else -1.0)
-            # parte do escape: recuar forte no começo, depois avançar um pouco
-            total = int(2.0 * 1000 / max(1, self.time_step))
-            half = total // 2
+            # Usa direção FIXADA no início do escape (evita oscilação)
+            prefer_left = self._escape_prefer_left
+            
+            # Fases do escape (3s total):
+            total = int(3.0 * 1000 / max(1, self.time_step))
             phase = self._escape_steps
-            vx = -0.11 if phase > half else 0.06
-            return (vx, 0.0, omega, {**extra, "escape": True})
+            third = total // 3
+            
+            if phase > 2 * third:
+                # Fase 1: recua rápido e reto
+                vx = -0.15
+                vy = 0.0
+                omega = 0.0
+            elif phase > third:
+                # Fase 2: STRAFE forte para o lado livre + giro
+                vx = -0.04
+                vy = 0.15 if prefer_left else -0.15
+                omega = (0.6 * self.cfg.motion.max_omega) * (1.0 if prefer_left else -1.0)
+            else:
+                # Fase 3: continua strafe + gira forte e avança
+                vx = 0.06
+                vy = 0.08 if prefer_left else -0.08
+                omega = (1.0 * self.cfg.motion.max_omega) * (1.0 if prefer_left else -1.0)
+            
+            return (vx, vy, omega, {**extra, "escape": True})
 
-        # Se ficou "travado" por ~1.2s, dispara escape
-        if self._stuck_counter > int(1.2 * 1000 / max(1, self.time_step)):
+        # Se ficou "travado" por ~1.5s, dispara escape
+        if self._stuck_counter > int(1.5 * 1000 / max(1, self.time_step)):
             self._stuck_counter = 0
-            self._escape_steps = int(2.0 * 1000 / max(1, self.time_step))
-            prefer_left = secs.left_min >= secs.right_min
-            omega = (1.0 * self.cfg.motion.max_omega) * (1.0 if prefer_left else -1.0)
-            return (-0.11, 0.0, omega, {**extra, "escape": True})
+            self._escape_steps = int(3.0 * 1000 / max(1, self.time_step))
+            # FIXA direção no início do escape
+            self._escape_prefer_left = secs.left_min >= secs.right_min
+            omega = (1.0 * self.cfg.motion.max_omega) * (1.0 if self._escape_prefer_left else -1.0)
+            return (-0.15, 0.0, omega, {**extra, "escape": True})
 
         # Detecção de "pinch": preso entre dois obstáculos laterais (ou parede+caixote)
         # Sinal típico: left e right baixos e parecidos, enquanto frente não está tão baixa.
@@ -304,15 +330,29 @@ class YouBotAI(YouBotController):
             return (0.0, 0.0, omega, {**extra, "turning": True})
         if self._recovery_steps > 0:
             self._recovery_steps -= 1
-            turn_left = secs.left_min >= secs.right_min
-            omega = (0.85 * self.cfg.motion.max_omega) * (1.0 if turn_left else -1.0)
-            return (-0.08, 0.0, omega, {**extra, "recovery": True})
+            # Usa direção FIXADA no início do recovery (evita oscilação)
+            omega = (0.85 * self.cfg.motion.max_omega) * (1.0 if self._recovery_turn_left else -1.0)
+            return (-0.10, 0.0, omega, {**extra, "recovery": True})
 
-        if secs.front_min < 0.24 or min_side < 0.17 or min_front_flanks < 0.18:
-            self._recovery_steps = int(1.2 * 1000 / max(1, self.time_step))
-            turn_left = secs.left_min >= secs.right_min
-            omega = (0.85 * self.cfg.motion.max_omega) * (1.0 if turn_left else -1.0)
-            return (-0.08, 0.0, omega, {**extra, "recovery": True})
+        # Threshold mais conservador: min_side < 0.22 (era 0.17)
+        if secs.front_min < 0.28 or min_side < 0.22 or min_front_flanks < 0.22:
+            # Fixa direção de giro NO INÍCIO do recovery
+            self._recovery_turn_left = secs.left_min >= secs.right_min
+            # Recovery mais longo: 2.0s (era 1.2s)
+            self._recovery_steps = int(2.0 * 1000 / max(1, self.time_step))
+            self._consecutive_recoveries += 1
+            
+            # Se já tentou vários recoveries sem sucesso, força escape mais agressivo
+            if self._consecutive_recoveries >= 3:
+                self._escape_steps = int(3.0 * 1000 / max(1, self.time_step))
+                self._consecutive_recoveries = 0
+                return (-0.12, 0.0, (1.0 * self.cfg.motion.max_omega) * (1.0 if self._recovery_turn_left else -1.0), {**extra, "escape": True})
+            
+            omega = (0.85 * self.cfg.motion.max_omega) * (1.0 if self._recovery_turn_left else -1.0)
+            return (-0.10, 0.0, omega, {**extra, "recovery": True})
+        else:
+            # Resetar contador quando não está em situação de recovery
+            self._consecutive_recoveries = max(0, self._consecutive_recoveries - 1)
 
         # IMPORTANT: se estamos vendo uma caixa grande (bin), NÃO tratar como cubo/alvo de perseguição.
         if det.found:
@@ -372,11 +412,32 @@ class YouBotAI(YouBotController):
         omega = max(-self.cfg.motion.max_omega, min(self.cfg.motion.max_omega, omega))
 
         vx = avoid_vx
-        if secs.front_min < 0.50:
-            vx *= 0.6
-        if secs.front_min < 0.35:
-            vx *= 0.35
+        # Suavizado: threshold 0.50->0.40, multiplier 0.6->0.7
+        if secs.front_min < 0.40:
+            vx *= 0.7
+        if secs.front_min < 0.30:
+            vx *= 0.4
+
+        # Garante vx mínimo de exploração quando não há obstáculo próximo
+        if secs.front_min > 0.55 and min_side > 0.30:
+            vx = max(vx, 0.08)
+
         vx = max(0.0, min(self.cfg.motion.max_vx, vx))
+
+        # ===== Detecção de "stuck in circle" =====
+        # Se omega tem mesmo sinal por muito tempo (~3s), inverte para quebrar ciclo
+        current_sign = 1 if omega > 0.05 else (-1 if omega < -0.05 else 0)
+        if current_sign != 0 and current_sign == self._last_omega_sign:
+            self._same_omega_direction_steps += 1
+        else:
+            self._same_omega_direction_steps = 0
+        self._last_omega_sign = current_sign
+
+        if self._same_omega_direction_steps > int(3.0 * 1000 / max(1, self.time_step)):
+            omega = -omega * 0.5  # inverte e suaviza
+            self._same_omega_direction_steps = 0
+            extra["circle_break"] = True
+
         return (vx, 0.0, omega, extra)
 
     def run(self):
@@ -470,9 +531,16 @@ class YouBotAI(YouBotController):
                         extra={**extra, "features": feats},
                     )
 
-                # log “batimento” a cada ~1s
+                # log "batimento" a cada ~1s - agora com mais info para debug
                 if self.step_count % max(1, int(1000 / max(1, self.time_step))) == 0:
-                    self._write_debug_log(f"tick step={self.step_count} vx={vx:.3f} omega={omega:.3f} kick={self.step_count <= self._kick_steps}")
+                    flags = []
+                    if extra.get("turning"): flags.append("turn")
+                    if extra.get("recovery"): flags.append("rec")
+                    if extra.get("escape"): flags.append("esc")
+                    if extra.get("pinch"): flags.append("pinch")
+                    if extra.get("circle_break"): flags.append("circ")
+                    flags_str = ",".join(flags) if flags else "-"
+                    self._write_debug_log(f"tick step={self.step_count} vx={vx:.3f} omega={omega:.3f} flags={flags_str}")
         finally:
             if self.logger:
                 self.logger.close()

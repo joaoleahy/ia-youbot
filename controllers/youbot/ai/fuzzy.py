@@ -82,8 +82,9 @@ class FuzzyAvoider:
         self.med_c = 0.60
 
         # far: ombro à direita (bem longe -> 1)
-        self.far_lo = 0.45
-        self.far_hi = 0.85
+        # Ajustado para considerar "longe" mais cedo (0.35-0.65 vs 0.45-0.85)
+        self.far_lo = 0.35
+        self.far_hi = 0.65
 
     def __call__(self, left: float, front: float, right: float) -> FuzzyOutput:
         # pertinências
