@@ -1,0 +1,168 @@
+#VRML_SIM R2025a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/robots/kuka/youbot/protos/Youbot.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/factory/containers/protos/PlasticFruitBox.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/factory/containers/protos/WoodenBox.proto"
+
+WorldInfo {
+  info [
+    "Simulation of the KUKA youBot robot."
+    "This model includes an accurate and fast simulation of the Meccanum wheels."
+    "The robot can be equiped with various sensors (including the Microsoft Kinect) and configured with zero, one or two arms."
+  ]
+  title "KUKA youBot"
+  basicTimeStep 16
+  contactProperties [
+    ContactProperties {
+      material1 "InteriorWheelMat"
+      coulombFriction [
+        0, 2, 0
+      ]
+      frictionRotation -0.785398 0
+      bounce 0
+      forceDependentSlip [
+        10, 0
+      ]
+    }
+    ContactProperties {
+      material1 "ExteriorWheelMat"
+      coulombFriction [
+        0, 2, 0
+      ]
+      frictionRotation 0.785398 0
+      bounce 0
+      forceDependentSlip [
+        10, 0
+      ]
+    }
+  ]
+}
+Viewpoint {
+  orientation -0.5773502691896258 0.5773502691896258 0.5773502691896258 2.0944
+  position -0.5112727273139026 -0.060619736078962844 13.210532001517056
+  follow "youBot"
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+RectangleArena {
+  translation -0.79 0 0
+  floorSize 7 4
+  floorAppearance PBRAppearance {
+    baseColorMap ImageTexture {
+      url [
+        "../textures/Material.001_baseColor.png"
+      ]
+    }
+    roughness 1
+    metalness 0
+  }
+  wallHeight 0.3
+  wallAppearance PBRAppearance {
+    baseColorMap ImageTexture {
+      url [
+        "../textures/Material.001_baseColor.png"
+      ]
+    }
+    roughness 1
+    metalness 0
+  }
+}
+PlasticFruitBox {
+  name "GREEN"
+  translation 0.48 1.58 0
+  color 0 1 0
+}
+PlasticFruitBox {
+  name "BLUE"
+  translation 0.48 -1.62 0
+  color 0 0 1
+}
+PlasticFruitBox {
+  name "RED"
+  translation 2.31 0.00999969 0
+  rotation 0 0 1 1.5708
+  color 1 0 0
+}
+Youbot {
+  hidden position_0_0 15.994544765033256
+  hidden position_0_1 -15.994563013321551
+  hidden position_0_2 -24.183727372173948
+  hidden position_0_3 24.183743417312467
+  hidden position_3_0 -2.182190582319627e-10
+  hidden position_4_0 1.5700025634452441
+  hidden rotation_5 0 -1 0 1.5700025634452441
+  hidden position_5_0 -2.63500163792944
+  hidden rotation_6 0 0.9999999999999999 0 2.63500163792944
+  hidden position_6_0 1.780000422997133
+  hidden rotation_7 0 -1 0 1.780000422997133
+  hidden position_7_0 1.3095366507060104e-09
+  hidden position_8_0 0.0068994264057803635
+  hidden position_8_1 9.999992826833685e-05
+  hidden translation_9 0 0.0068994264057803635 0.09
+  hidden translation_10 0 -9.999992826833685e-05 0.09
+  hidden rotation_11 0 0.9999999999999999 0 3.428174150674083
+  hidden rotation_12 0 -1 0 3.4281923989623784
+  hidden rotation_13 0 1 0 0.9490138565443978
+  hidden rotation_14 0 -1 0 0.9489978114058787
+  translation -3.9997416678390314 9.611380688677505e-06 0.1019377704282028
+  rotation -0.025943278593371307 0.9992896840147073 0.027332649297378084 0.001589857913403252
+  controllerArgs [
+    ""
+  ]
+  bodySlot [
+    Lidar {
+      translation 0.28 0 -0.07
+      numberOfLayers 1
+    }
+    Camera {
+      translation 0.27 0 -0.06
+      width 128
+      height 128
+    }
+  ]
+}
+Robot {
+  name "Supervisor"
+  controller "supervisor"
+  supervisor TRUE
+}
+WoodenBox {
+  translation 0.6 0 0.15
+  name "A"
+  size 0.3 0.3 0.3
+}
+WoodenBox {
+  translation 1.96 -1.24 0.15
+  name "B"
+  size 0.3 0.3 0.3
+}
+WoodenBox {
+  translation 1.95 1.25 0.15
+  name "C"
+  size 0.3 0.3 0.3
+}
+WoodenBox {
+  translation -2.28 1.5 0.15
+  name "D"
+  size 0.3 0.3 0.3
+}
+WoodenBox {
+  translation -1.02 0.75 0.15
+  name "E"
+  size 0.3 0.3 0.3
+}
+WoodenBox {
+  translation -1.02 -0.74 0.15
+  name "F"
+  size 0.3 0.3 0.3
+}
+WoodenBox {
+  translation -2.27 -1.51 0.15
+  name "G"
+  size 0.3 0.3 0.3
+}
