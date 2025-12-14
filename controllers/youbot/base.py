@@ -55,16 +55,41 @@ class Base:
             robot.getDevice("wheel3"),
             robot.getDevice("wheel4")
         ]
+
+        missing = [i + 1 for i, w in enumerate(self.wheels) if w is None]
+        if missing:
+            # Não quebra o controller: apenas deixa explícito no console do Webots.
+            print(f"[Base] WARNING: wheel motor(s) not found: {missing}. "
+                  f"Check device names in the Youbot PROTO/world.")
         
         # Set wheels to velocity control mode
         for wheel in self.wheels:
+            if wheel is None:
+                continue
             wheel.setPosition(float('inf'))
             wheel.setVelocity(0.0)
+
+        # Limite físico do motor (rad/s) para evitar saturação/instabilidade
+        self.max_wheel_velocity = None
+        try:
+            vals = []
+            for w in self.wheels:
+                if w is None:
+                    continue
+                # Motor.getMaxVelocity() existe no Webots
+                mv = w.getMaxVelocity()
+                if mv and mv > 0:
+                    vals.append(mv)
+            if vals:
+                self.max_wheel_velocity = min(vals)
+        except Exception:
+            self.max_wheel_velocity = None
         
         # Movement state
         self.vx = 0.0 
         self.vy = 0.0  
         self.omega = 0.0 
+        self.last_wheel_speeds = [0.0, 0.0, 0.0, 0.0]
         
     def _set_wheel_speeds_helper(self, speeds):
         """Set wheel velocities from a list of 4 speeds
@@ -73,7 +98,17 @@ class Base:
             speeds: list of 4 wheel speeds
         """
         for i in range(4):
-            self.wheels[i].setVelocity(speeds[i])
+            w = self.wheels[i]
+            if w is None:
+                continue
+            v = speeds[i]
+            if self.max_wheel_velocity is not None:
+                if v > self.max_wheel_velocity:
+                    v = self.max_wheel_velocity
+                elif v < -self.max_wheel_velocity:
+                    v = -self.max_wheel_velocity
+            w.setVelocity(v)
+        self.last_wheel_speeds = list(speeds)
     
     def move(self, vx, vy, omega):
         """Set wheel velocities for omnidirectional movement using proper kinematics"""
